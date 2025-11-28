@@ -72,7 +72,6 @@ if __name__ == "__main__":
     data_dir = Path(args.data_dir) 
 
     # Paths to annotation, metadata, output metadata and output image folders
-    anno_path = data_dir / "gt_annotation.npz"
     metadata_path = data_dir / "transforms.json"
     out_json_path = data_dir / "controlnet/transforms.json"
     out_imgs_path = data_dir / "controlnet"
@@ -84,7 +83,7 @@ if __name__ == "__main__":
     reference_frame_idx = metadata["trajectory_ref"]
 
     # Prepare annotations - resize camera views 
-    trajectory = get_annotations(annotations_path=anno_path, working_dir=out_imgs_path, frames=trajectory, resolution=512, zoom_in=True)
+    trajectory = get_annotations(annotations_path=data_dir, working_dir=out_imgs_path, frames=trajectory, resolution=512, zoom_in=True)
     annotation_path  = out_imgs_path / trajectory[reference_frame_idx]["annotation_path"]
     depth_path  = out_imgs_path / trajectory[reference_frame_idx]["depth_path"]
     generated_path = out_imgs_path / trajectory[reference_frame_idx]["file_path"]
