@@ -22,7 +22,7 @@ WORKDIR ${CODE_DIR}
 
 RUN pip install --upgrade pip \
  && pip install "torch>=2.5.1" "torchvision>=0.20.1" --index-url https://download.pytorch.org/whl/cu124 \
- && pip install --upgrade diffusers transformers accelerate safetensors
+ && pip install --upgrade diffusers transformers accelerate safetensors opencv-python
 
 # Default to a shell
 CMD ["bash"]
