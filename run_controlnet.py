@@ -85,12 +85,13 @@ if __name__ == "__main__":
 
     # Prepare annotations - resize camera views 
     trajectory = get_annotations(annotations_path=anno_path, working_dir=out_imgs_path, frames=trajectory, resolution=512, zoom_in=True)
-    annotation  = cv2.imread(str(out_imgs_path / trajectory[reference_frame_idx]["annotation_path"]))
+    annotation_path  = out_imgs_path / trajectory[reference_frame_idx]["annotation_path"]
+    depth_path  = out_imgs_path / trajectory[reference_frame_idx]["depth_path"]
     generated_path = out_imgs_path / trajectory[reference_frame_idx]["file_path"]
     generated_path.parent.mkdir(parents=True, exist_ok=True)
     
     # Controlnet 
-    run_controlnet(condition=annotation, gen_path=generated_path)
+    run_controlnet(condition=annotation_path, gen_path=generated_path, depth_path=depth_path)
 
     # Save metadata 
     metadata["frames"] = metadata.pop("trajectory")
