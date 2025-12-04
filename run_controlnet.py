@@ -27,7 +27,7 @@ def run_controlnet(pose_condition: Path, gen_path: Path, depth_path: Path | None
         "lllyasviel/sd-controlnet-openpose",
         torch_dtype=torch.float16,
     )
-    pose_condition = load_image(pose_condition)
+    pose_condition = load_image(str(pose_condition))
     conditions += [pose_condition]
     controlnets += [cn_pose]
     weights += [0.8] # TODO put this hardcoded value somewhere else 
@@ -37,7 +37,7 @@ def run_controlnet(pose_condition: Path, gen_path: Path, depth_path: Path | None
             "lllyasviel/sd-controlnet-depth",
             torch_dtype=torch.float16,
         )
-        depth_condition = load_image(depth_path)
+        depth_condition = load_image(str(depth_path))
         conditions += [depth_condition]
         controlnets += [cn_depth]
         weights += [0.4] # TODO put this hardcoded value somewhere else 
@@ -50,7 +50,7 @@ def run_controlnet(pose_condition: Path, gen_path: Path, depth_path: Path | None
 
     # TODO also put this in some configuration file 
     prompt = "Two men with black hair in gray suits facing the same way, standing slightly apart, located on an empty street, muted colors, single everyday image, this photo is part of collection where these people are being photographed from all angles"
-    n_prompt = "extra fingers, too few fingers, bad quality, worst quality"
+    n_prompt = "extra fingers, too few fingers, bad quality, worst quality, multiple stitched together images"
 
     # 3) Call with *lists* for both images and scales
     images = pipe(
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     generated_path.parent.mkdir(parents=True, exist_ok=True)
     
     # Controlnet 
-    run_controlnet(condition=annotation_path, gen_path=generated_path, depth_path=depth_path)
+    run_controlnet(pose_condition=annotation_path, gen_path=generated_path, depth_path=depth_path)
 
     # Save metadata 
     metadata["frames"] = metadata.pop("trajectory")

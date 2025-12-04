@@ -140,8 +140,10 @@ def get_annotations(annotations_path: Path, working_dir: Path, frames: dict, res
             depth = np.load(annotations_path / value["frame"]["depth_path"])
             depth = depth[value["origin_y"]:value["origin_y"] + crop_shape[1], value["origin_x"]:value["origin_x"] + crop_shape[0]]
             depth = cv2.resize(depth, (new_w, new_h))
-            (working_dir / value["frame"]["depth_path"]).parent.mkdir(parents=True, exit_ok=True)
-            cv2.imwrite(working_dir / value["frame"]["depth_path"], depth) 
+            depth_path = value["frame"]["depth_path"][:-4] + ".png" 
+            (working_dir / depth_path).parent.mkdir(parents=True, exist_ok=True)
+            cv2.imwrite(working_dir / depth_path, depth) 
+            value["frame"]["depth_path"] = depth_path
 
         value["frame"]["h"] = new_h
         value["frame"]["w"] = new_w
