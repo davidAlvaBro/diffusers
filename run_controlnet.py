@@ -63,7 +63,6 @@ def run_controlnet(pose_condition: Path, gen_path: Path, depth_path: Path | None
 
     images[0].save(gen_path)
 
-
 if __name__ == "__main__": 
     parser = argparse.ArgumentParser(description="Apply pose and depth controlnet on the reference image and save it for lifting pipeline.")
     parser.add_argument("--data-dir", default="/data/test", type=str, help="Path to folder where images will be stored in the folder 'images'.")
@@ -81,22 +80,25 @@ if __name__ == "__main__":
         metadata = json.load(f)
     trajectory = metadata["trajectory"]
     reference_frame_idx = metadata["trajectory_ref"]
+    reference_frame = trajectory[reference_frame_idx]
 
-    # Prepare annotations - resize camera views 
-    trajectory = get_annotations(annotations_path=data_dir, working_dir=out_imgs_path, frames=trajectory, resolution=512, zoom_in=True)
-    annotation_path  = out_imgs_path / trajectory[reference_frame_idx]["annotation_path"]
-    depth_path  = out_imgs_path / trajectory[reference_frame_idx]["depth_path"]
+    annotation_path = data_dir / reference_frame["zoomed_annotation_path"]
     generated_path = out_imgs_path / trajectory[reference_frame_idx]["file_path"]
-    generated_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Resize depth 
+    (h,w) = reference_frame["zoomed_h"], reference_frame["zoomed_w"]
+    x_min, x_max = reference_frame["zoomed_x_min"], reference_frame["zoomed_x_max"]
+    y_min, y_max = reference_frame["zoomed_y_min"], reference_frame["zoomed_y_max"]
+    depth = np.load(data_dir / reference_frame["depth_path"])
+
+    depth_cropped = depth[y_min:y_max, x_min:x_max]
+    depth_resized = cv2.resize(depth_cropped, (w, h))
+    
+    depth_path = out_imgs_path / reference_frame["depth_path"]
+    depth_path.parent.mkdir(parents=True, exists=True)
+    cv2.imwrite(depth_path, depth_resized)
     
     # Controlnet 
     run_controlnet(pose_condition=annotation_path, gen_path=generated_path, depth_path=depth_path)
-
-    # Save metadata 
-    metadata["frames"] = metadata.pop("trajectory")
-    metadata["ref"] = metadata.pop("trajectory_ref")
-    with open(out_json_path, "w", encoding="utf-8") as f:
-        json.dump(metadata, f, ensure_ascii=False, indent=2)
-
 
     
