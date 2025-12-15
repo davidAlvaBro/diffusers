@@ -9,8 +9,6 @@ import cv2
 from diffusers import ControlNetModel, StableDiffusionControlNetPipeline
 from diffusers.utils import load_image
 
-from prepare_labels import get_annotations
-
 
 def run_controlnet(pose_condition: Path, gen_path: Path, depth_path: Path | None = None): 
     """
