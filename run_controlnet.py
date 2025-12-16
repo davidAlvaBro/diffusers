@@ -85,8 +85,8 @@ if __name__ == "__main__":
 
     # Resize depth 
     (h,w) = reference_frame["zoomed_h"], reference_frame["zoomed_w"]
-    x_min, x_max = reference_frame["zoomed_x_min"], reference_frame["zoomed_x_max"]
-    y_min, y_max = reference_frame["zoomed_y_min"], reference_frame["zoomed_y_max"]
+    x_min, x_max = reference_frame["crop_x_min"], reference_frame["crop_x_max"]
+    y_min, y_max = reference_frame["crop_y_min"], reference_frame["crop_y_max"]
     depth = np.load(data_dir / reference_frame["depth_path"])
 
     depth_cropped = depth[y_min:y_max, x_min:x_max]
