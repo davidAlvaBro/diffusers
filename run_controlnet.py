@@ -82,6 +82,7 @@ if __name__ == "__main__":
 
     annotation_path = data_dir / reference_frame["zoomed_annotation_path"]
     generated_path = out_imgs_path / trajectory[reference_frame_idx]["file_path"]
+    generated_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Resize depth 
     (h,w) = reference_frame["zoomed_h"], reference_frame["zoomed_w"]
@@ -93,10 +94,15 @@ if __name__ == "__main__":
     depth_resized = cv2.resize(depth_cropped, (w, h))
     
     depth_path = out_imgs_path / reference_frame["depth_path"]
-    depth_path.parent.mkdir(parents=True, exists=True)
+    depth_path = Path(str(depth_path)[:-4] + ".png")
+    depth_path.parent.mkdir(parents=True, exist_ok=True)
+    # print(depth_path, type(depth_resized), depth_resized.shape)
     cv2.imwrite(depth_path, depth_resized)
     
     # Controlnet 
-    run_controlnet(pose_condition=annotation_path, gen_path=generated_path, depth_path=depth_path)
+    run_controlnet(pose_condition=annotation_path, gen_path=generated_path)#, depth_path=depth_path)
+
+    with open(out_json_path, "w", encoding="utf-8") as f:
+        json.dump(metadata, f, ensure_ascii=False, indent=2)   
 
     
