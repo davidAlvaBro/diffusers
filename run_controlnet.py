@@ -102,6 +102,9 @@ if __name__ == "__main__":
     # Controlnet 
     run_controlnet(pose_condition=annotation_path, gen_path=generated_path)#, depth_path=depth_path)
 
+    # Nothing builds on 'frames' after the controlnet pipeline 
+    metadata["frames"] = metadata.pop("trajectory")
+    metadata["ref"] = metadata.pop("trajectory_ref")
     with open(out_json_path, "w", encoding="utf-8") as f:
         json.dump(metadata, f, ensure_ascii=False, indent=2)   
 
