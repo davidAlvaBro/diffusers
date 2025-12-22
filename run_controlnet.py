@@ -10,7 +10,7 @@ from diffusers import ControlNetModel, StableDiffusionControlNetPipeline
 from diffusers.utils import load_image
 
 
-def run_controlnet(pose_condition: Path, gen_path: Path, depth_path: Path | None = None): 
+def run_controlnet(pose_condition: Path, gen_path: Path, prompt: str, depth_path: Path | None = None): 
     """
     Given a path to an annotation dataset, a path to the camera parameters, and an output path 
     generate new pose conditioned images from each of these camera views. 
@@ -47,7 +47,7 @@ def run_controlnet(pose_condition: Path, gen_path: Path, depth_path: Path | None
     ).to(device)
 
     # TODO also put this in some configuration file 
-    prompt = "Two men with black hair in gray suits facing the same way, standing slightly apart, located on an empty street, muted colors, single everyday image, this photo is part of collection where these people are being photographed from all angles"
+    # prompt = "Two men with black hair in gray suits facing the same way, standing slightly apart, located on an empty street, muted colors, single everyday image, this photo is part of collection where these people are being photographed from all angles"
     n_prompt = "extra fingers, too few fingers, bad quality, worst quality, multiple stitched together images"
 
     # 3) Call with *lists* for both images and scales
@@ -64,6 +64,7 @@ def run_controlnet(pose_condition: Path, gen_path: Path, depth_path: Path | None
 if __name__ == "__main__": 
     parser = argparse.ArgumentParser(description="Apply pose and depth controlnet on the reference image and save it for lifting pipeline.")
     parser.add_argument("--data-dir", default="/data/test", type=str, help="Path to folder where images will be stored in the folder 'images'.")
+    parser.add_argument("--prompt", default="", type=str, help="Prompt used for image generation.")
     parser.add_argument("--adjust-all", action="store_true", help="If all frames needs to zoom in on the annotation.")
     args = parser.parse_args()
     data_dir = Path(args.data_dir) 
@@ -100,7 +101,7 @@ if __name__ == "__main__":
     cv2.imwrite(depth_path, depth_resized)
     
     # Controlnet 
-    run_controlnet(pose_condition=annotation_path, gen_path=generated_path)#, depth_path=depth_path)
+    run_controlnet(pose_condition=annotation_path, gen_path=generated_path, prompt=args.prompt)#, depth_path=depth_path)
 
     # Nothing builds on 'frames' after the controlnet pipeline 
     metadata["frames"] = metadata.pop("trajectory")
