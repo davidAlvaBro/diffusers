@@ -64,7 +64,7 @@ def run_controlnet(pose_condition: Path, gen_path: Path, prompt: str, depth_path
 if __name__ == "__main__": 
     parser = argparse.ArgumentParser(description="Apply pose and depth controlnet on the reference image and save it for lifting pipeline.")
     parser.add_argument("--data-dir", default="/data/test", type=str, help="Path to folder where images will be stored in the folder 'images'.")
-    parser.add_argument("--prompt", default="", type=str, help="Prompt used for image generation.")
+    parser.add_argument("--prompt", default=" ", type=str, help="Prompt used for image generation.")
     parser.add_argument("--adjust-all", action="store_true", help="If all frames needs to zoom in on the annotation.")
     args = parser.parse_args()
     data_dir = Path(args.data_dir) 
@@ -73,6 +73,15 @@ if __name__ == "__main__":
     metadata_path = data_dir / "transforms.json"
     out_json_path = data_dir / "controlnet/transforms.json"
     out_imgs_path = data_dir / "controlnet"
+    prompt_path = out_imgs_path / "prompt.txt"
+    
+    # Save the prompt for logging purposes 
+    if args.prompt == " ": 
+        prompt = open(prompt_path).read()
+    else : 
+        prompt = args.prompt
+        with open(prompt_path, "w") as f:
+            f.write(prompt)
 
     # Get metadata
     with open(metadata_path, "r") as f:
@@ -100,8 +109,9 @@ if __name__ == "__main__":
     # print(depth_path, type(depth_resized), depth_resized.shape)
     cv2.imwrite(depth_path, depth_resized)
     
+    
     # Controlnet 
-    run_controlnet(pose_condition=annotation_path, gen_path=generated_path, prompt=args.prompt)#, depth_path=depth_path)
+    run_controlnet(pose_condition=annotation_path, gen_path=generated_path, prompt=prompt)#, depth_path=depth_path)
 
     # Nothing builds on 'frames' after the controlnet pipeline 
     metadata["frames"] = metadata.pop("trajectory")
