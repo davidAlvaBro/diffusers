@@ -12,7 +12,7 @@ from diffusers.utils import load_image
 
 
 # def run_controlnet(pose_condition: Path, gen_path: Path, prompt: str, depth_path: Path | None = None): 
-def run_controlnet(pose_condition: Image, pose_condition_zoomed: Image, gen_path: Path, prompt: str, reference_frame, depth_path: Path | None = None): 
+def run_controlnet(pose_condition: Image, gen_path: Path, prompt: str, reference_frame, pose_condition_zoomed: Image = None, depth_path: Path | None = None): 
     """
     Given a path to an annotation dataset, a path to the camera parameters, and an output path 
     generate new pose conditioned images from each of these camera views. 
@@ -60,6 +60,10 @@ def run_controlnet(pose_condition: Image, pose_condition_zoomed: Image, gen_path
         negative_prompt=n_prompt
     ).images
 
+    if pose_condition is not None : 
+        images[0].save(gen_path)
+        return
+     
     images[0].save(gen_path.parent / "full.png")
 
     # Create crop 
@@ -95,15 +99,15 @@ def preprocess_two_views(data_dir, ref_frame):
     # max_side_length = max(ref_frame["2"], ref_frame["fl_y"])
     # min_side_length = min(ref_frame["fl_x"], ref_frame["fl_y"])
     # dif = (max_side_length - min_side_length) // 2
-    dif = (ref_frame["w"] - ref_frame["h"]) // 2
-    wide_annotation = load_image(str(data_dir / ref_frame["annotation_path"]))
-    wide_annotation = wide_annotation.crop((dif, 0, ref_frame["h"] + dif, ref_frame["h"]))
-    ref_frame["cx"] = ref_frame["cx"] - dif
-    ref_frame["w"] = ref_frame["w"] - 2*dif
+    # dif = (ref_frame["w"] - ref_frame["h"]) // 2
+    # wide_annotation = load_image(str(data_dir / ref_frame["annotation_path"]))
+    # wide_annotation = wide_annotation.crop((dif, 0, ref_frame["h"] + dif, ref_frame["h"]))
+    # ref_frame["cx"] = ref_frame["cx"] - dif
+    # ref_frame["w"] = ref_frame["w"] - 2*dif
 
-    # Adjust what this means for the crop  
-    ref_frame["crop_x_min"] = ref_frame["crop_x_min"] - dif 
-    ref_frame["crop_x_max"] = ref_frame["crop_x_max"] - dif
+    # # Adjust what this means for the crop  
+    # ref_frame["crop_x_min"] = ref_frame["crop_x_min"] - dif 
+    # ref_frame["crop_x_max"] = ref_frame["crop_x_max"] - dif
 
     # Now resize to (512, 512)
     final_shape = (512, 512)
@@ -127,11 +131,11 @@ def preprocess_two_views(data_dir, ref_frame):
 
     return wide_annotation, narrow_annotation, ref_frame
 
-
 if __name__ == "__main__": 
     parser = argparse.ArgumentParser(description="Apply pose and depth controlnet on the reference image and save it for lifting pipeline.")
     parser.add_argument("--data-dir", default="../data/testy", type=str, help="Path to folder where images will be stored in the folder 'images'.")
     parser.add_argument("--prompt", default=" ", type=str, help="Prompt used for image generation.")
+    parser.add_argument("--inpaint", action="store_true", help="Generate a wide image first then inpaint zoomed, or just use zoomed")
     args = parser.parse_args()
     data_dir = Path(args.data_dir) 
 
@@ -156,8 +160,10 @@ if __name__ == "__main__":
     reference_frame_idx = metadata["trajectory_ref"]
     reference_frame = trajectory[reference_frame_idx]
 
-    wide, narrow, reference_frame = preprocess_two_views(data_dir=data_dir, ref_frame=reference_frame)
-
+    if args.inpaint:
+        wide, narrow, reference_frame = preprocess_two_views(data_dir=data_dir, ref_frame=reference_frame)
+    else: 
+        narrow = load_image(str(data_dir / reference_frame["zoomed_annotation_path"]))
     # annotation_path_zoomed = data_dir / reference_frame["zoomed_annotation_path"]
     # annotation_path = data_dir / reference_frame["annotation_path"]
     generated_path = out_imgs_path / trajectory[reference_frame_idx]["file_path"]
@@ -180,7 +186,10 @@ if __name__ == "__main__":
     
     
     # Controlnet 
-    run_controlnet(pose_condition=wide, pose_condition_zoomed=narrow, gen_path=generated_path, prompt=prompt, reference_frame=reference_frame)#, depth_path=depth_path)
+    if args.inpaint:
+        run_controlnet(pose_condition=wide, pose_condition_zoomed=narrow, gen_path=generated_path, prompt=prompt, reference_frame=reference_frame)#, depth_path=depth_path)
+    else : 
+        run_controlnet(pose_condition=narrow, gen_path=generated_path, prompt=prompt, reference_frame=reference_frame)
     # run_controlnet(pose_condition=annotation_path, pose_condition_zoomed=annotation_path_zoomed, gen_path=generated_path, prompt=prompt, reference_frame=reference_frame)#, depth_path=depth_path)
 
     # Nothing builds on 'frames' after the controlnet pipeline 
