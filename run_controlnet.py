@@ -2,8 +2,8 @@ import argparse
 from pathlib import Path
 import json
 
-import numpy as np 
 import torch
+import numpy as np 
 import cv2
 from PIL import Image
 
@@ -12,7 +12,7 @@ from diffusers.utils import load_image
 
 
 # def run_controlnet(pose_condition: Path, gen_path: Path, prompt: str, depth_path: Path | None = None): 
-def run_controlnet(pose_condition: Image, gen_path: Path, prompt: str, reference_frame, pose_condition_zoomed: Image = None, depth_path: Path | None = None): 
+def run_controlnet(pose_condition: Image, gen_path: Path, prompt: str, reference_frame, pose_condition_zoomed: Image = None, depth_path: Path | None = None, seed: int=420): 
     """
     Given a path to an annotation dataset, a path to the camera parameters, and an output path 
     generate new pose conditioned images from each of these camera views. 
@@ -21,6 +21,9 @@ def run_controlnet(pose_condition: Image, gen_path: Path, prompt: str, reference
     controlnets = [] 
     conditions = []
     weights = []
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    generator = torch.Generator(device="cpu").manual_seed(seed)
 
     # Pose control
     cn_pose = ControlNetModel.from_pretrained(
@@ -57,10 +60,11 @@ def run_controlnet(pose_condition: Image, gen_path: Path, prompt: str, reference
         num_inference_steps=50, # TODO also in config 
         image=conditions,
         controlnet_conditioning_scale=weights,
-        negative_prompt=n_prompt
+        negative_prompt=n_prompt,
+        generator=generator
     ).images
 
-    if pose_condition is not None : 
+    if pose_condition_zoomed is None : 
         images[0].save(gen_path)
         return
      
@@ -79,6 +83,7 @@ def run_controlnet(pose_condition: Image, gen_path: Path, prompt: str, reference
         image=conditions,
         controlnet_conditioning_scale=weights,
         negative_prompt=n_prompt, 
+        generator=generator,
         start_step_idx=25,
         inpainting_img=torch.from_numpy(crop).permute(2, 0, 1).unsqueeze(0).to(device)
     ).images
@@ -100,7 +105,7 @@ def preprocess_two_views(data_dir, ref_frame):
     # min_side_length = min(ref_frame["fl_x"], ref_frame["fl_y"])
     # dif = (max_side_length - min_side_length) // 2
     # dif = (ref_frame["w"] - ref_frame["h"]) // 2
-    # wide_annotation = load_image(str(data_dir / ref_frame["annotation_path"]))
+    wide_annotation = load_image(str(data_dir / ref_frame["annotation_path"]))
     # wide_annotation = wide_annotation.crop((dif, 0, ref_frame["h"] + dif, ref_frame["h"]))
     # ref_frame["cx"] = ref_frame["cx"] - dif
     # ref_frame["w"] = ref_frame["w"] - 2*dif
@@ -117,8 +122,8 @@ def preprocess_two_views(data_dir, ref_frame):
     ref_frame["fl_y"] = ref_frame["fl_y"]*scale
     ref_frame["cx"] = ref_frame["cx"]*scale
     ref_frame["cy"] = ref_frame["cy"]*scale
-    ref_frame["h"] = ref_frame["h"]*scale
-    ref_frame["w"] = ref_frame["w"]*scale
+    ref_frame["h"] = int(ref_frame["h"]*scale)
+    ref_frame["w"] = int(ref_frame["w"]*scale)
 
     # Again adjust for the other camera 
     ref_frame["crop_x_min"] = int(np.round(ref_frame["crop_x_min"]*scale))
@@ -136,6 +141,9 @@ if __name__ == "__main__":
     parser.add_argument("--data-dir", default="../data/testy", type=str, help="Path to folder where images will be stored in the folder 'images'.")
     parser.add_argument("--prompt", default=" ", type=str, help="Prompt used for image generation.")
     parser.add_argument("--inpaint", action="store_true", help="Generate a wide image first then inpaint zoomed, or just use zoomed")
+    parser.add_argument("--use-depth", action="store_true", help="Use a depth controlnet as well as pose condition - only compatible without inpaint and without wide_only")
+    parser.add_argument("--wide_only", action="store_true", help="Generate only wide")
+    parser.add_argument("--seed", default=420, type=int)
     args = parser.parse_args()
     data_dir = Path(args.data_dir) 
 
@@ -162,34 +170,42 @@ if __name__ == "__main__":
 
     if args.inpaint:
         wide, narrow, reference_frame = preprocess_two_views(data_dir=data_dir, ref_frame=reference_frame)
+    elif args.wide_only: 
+        wide, narrow, reference_frame = preprocess_two_views(data_dir=data_dir, ref_frame=reference_frame)
     else: 
         narrow = load_image(str(data_dir / reference_frame["zoomed_annotation_path"]))
+        if args.use_depth: 
+            # Resize depth 
+            (h,w) = reference_frame["zoomed_h"], reference_frame["zoomed_w"]
+            x_min, x_max = reference_frame["crop_x_min"], reference_frame["crop_x_max"]
+            y_min, y_max = reference_frame["crop_y_min"], reference_frame["crop_y_max"]
+            depth = np.load(data_dir / reference_frame["depth_path"])
+
+            depth_cropped = depth[y_min:y_max, x_min:x_max]
+            depth_resized = cv2.resize(depth_cropped, (w, h))
+            
+            depth_path = out_imgs_path / reference_frame["depth_path"]
+            depth_path = Path(str(depth_path)[:-4] + ".png")
+            depth_path.parent.mkdir(parents=True, exist_ok=True)
+            # print(depth_path, type(depth_resized), depth_resized.shape)
+            cv2.imwrite(depth_path, depth_resized)
     # annotation_path_zoomed = data_dir / reference_frame["zoomed_annotation_path"]
     # annotation_path = data_dir / reference_frame["annotation_path"]
     generated_path = out_imgs_path / trajectory[reference_frame_idx]["file_path"]
     generated_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # # Resize depth 
-    # (h,w) = reference_frame["zoomed_h"], reference_frame["zoomed_w"]
-    # x_min, x_max = reference_frame["crop_x_min"], reference_frame["crop_x_max"]
-    # y_min, y_max = reference_frame["crop_y_min"], reference_frame["crop_y_max"]
-    # depth = np.load(data_dir / reference_frame["depth_path"])
-
-    # depth_cropped = depth[y_min:y_max, x_min:x_max]
-    # depth_resized = cv2.resize(depth_cropped, (w, h))
-    
-    # depth_path = out_imgs_path / reference_frame["depth_path"]
-    # depth_path = Path(str(depth_path)[:-4] + ".png")
-    # depth_path.parent.mkdir(parents=True, exist_ok=True)
-    # # print(depth_path, type(depth_resized), depth_resized.shape)
-    # cv2.imwrite(depth_path, depth_resized)
-    
+        
     
     # Controlnet 
     if args.inpaint:
-        run_controlnet(pose_condition=wide, pose_condition_zoomed=narrow, gen_path=generated_path, prompt=prompt, reference_frame=reference_frame)#, depth_path=depth_path)
+        run_controlnet(pose_condition=wide, pose_condition_zoomed=narrow, gen_path=generated_path, prompt=prompt, reference_frame=reference_frame, seed=args.seed)#, depth_path=depth_path)
+    elif args.wide_only : 
+        run_controlnet(pose_condition=wide, gen_path=generated_path, prompt=prompt, reference_frame=reference_frame, seed=args.seed)
     else : 
-        run_controlnet(pose_condition=narrow, gen_path=generated_path, prompt=prompt, reference_frame=reference_frame)
+        if args.use_depth:
+            run_controlnet(pose_condition=narrow, gen_path=generated_path, prompt=prompt, reference_frame=reference_frame, depth_path=depth_path, seed=args.seed)
+        else :
+            run_controlnet(pose_condition=narrow, gen_path=generated_path, prompt=prompt, reference_frame=reference_frame, seed=args.seed)
     # run_controlnet(pose_condition=annotation_path, pose_condition_zoomed=annotation_path_zoomed, gen_path=generated_path, prompt=prompt, reference_frame=reference_frame)#, depth_path=depth_path)
 
     # Nothing builds on 'frames' after the controlnet pipeline 

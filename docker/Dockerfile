@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
  && rm -rf /var/lib/apt/lists/*
 
 # Make 'python' and 'pip' point to Python 3.10 tools
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 \
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 \
  && update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
 
 # Fixed internal paths for where you'll mount things at runtime
@@ -20,11 +20,12 @@ ENV CODE_DIR=/app
 ENV DATA_DIR=/data
 WORKDIR ${CODE_DIR}
 
-RUN pip install --upgrade pip \
- && pip install "torch>=2.5.1" "torchvision>=0.20.1" --index-url https://download.pytorch.org/whl/cu124 \
- && pip install --upgrade transformers accelerate safetensors opencv-python
+COPY . ${CODE_DIR}
 
-RUN pip install -e third_party/diffusers
+RUN python3.11 -m pip install --upgrade pip \
+ && python3.11 -m pip install "torch>=2.5.1" "torchvision>=0.20.1" --index-url https://download.pytorch.org/whl/cu124 \
+ && python3.11 -m pip install --upgrade transformers accelerate safetensors opencv-python numpy \
+ && python3.11 -m pip install -e third_party/diffusers
 
 # Default to a shell
 CMD ["bash"]
